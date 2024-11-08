@@ -26,9 +26,16 @@ diff(paragraph1, paragraph2)
 from selenium import webdriver
 from bs4 import BeautifulSoup
 import time
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
 
-# Initialize the WebDriver (Make sure the path is correct for your system)
-driver = webdriver.Chrome(executable_path="path_to_chromedriver")  # Replace with your path to chromedriver
+# Specify the path to chromedriver
+service = Service(r"C:\Users\Ahmed-Sharaf\PycharmProjects\pythonProject\chromedriver-win64\chromedriver.exe")
+
+# Initialize the driver with the service
+driver = webdriver.Chrome(service=service)
+
+# Now you can proceed with your automation
 driver.get("http://e-books.helwan.edu.eg/storage/29946/index.html#/reader/chapter/8")
 
 # Wait for the page to load
@@ -47,5 +54,5 @@ spans = soup.find_all("span")
 for span in spans:
     print(span.get_text())
 
-# Close the WebDriver
+# Close the WebDrivers
 driver.quit()
