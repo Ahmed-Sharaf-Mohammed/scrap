@@ -1,58 +1,55 @@
-"""def diff(paragraph1, paragraph2):
-    words1 = list(paragraph1.lower().split())
-    words2 = list(paragraph2.lower().split())
-
-    differences = []
-    i = 0
-
-    while i < len(words1) and i < len(words2):
-        if words1[i] != words2[i]:
-            differences.append(words2[i])
-            i += 1
-        else:
-            i += 1
-
-    # If there are remaining words in words2, add them to differences
-    differences.extend(words2[i:])
-
-    print(differences)
-
-# Example usage:
-paragraph2 = "hello hello add"
-paragraph1 = "hello add hello hello hello hello"
-diff(paragraph1, paragraph2)
-"""
-
 from selenium import webdriver
 from bs4 import BeautifulSoup
-import time
-from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from docx import Document
+from docx.shared import Pt
+import time
 
-# Specify the path to chromedriver
+# Path to your ChromeDriver
 service = Service(r"C:\Users\Ahmed-Sharaf\PycharmProjects\pythonProject\chromedriver-win64\chromedriver.exe")
 
-# Initialize the driver with the service
+# Initialize the WebDriver
 driver = webdriver.Chrome(service=service)
 
-# Now you can proceed with your automation
-driver.get("http://e-books.helwan.edu.eg/storage/29946/index.html#/reader/chapter/8")
+# Navigate to the webpage
+url = "http://e-books.helwan.edu.eg/storage/29946/index.html#/reader/chapter/8"
+driver.get(url)
 
-# Wait for the page to load
-time.sleep(5)  # Adjust the sleep time as needed for the content to load fully
+# Wait for JavaScript-rendered content to load
+time.sleep(10)  # Adjust the time based on your connection speed
 
-# Get the page source after rendering JavaScript
+# Get the page source and parse it
 page_source = driver.page_source
-
-# Parse the page source with BeautifulSoup
 soup = BeautifulSoup(page_source, "html.parser")
 
-# Find all span elements
-spans = soup.find_all("span")
+# Locate the target div
+content_div = soup.find("div", class_="WordSection2")
 
-# Print the text content of each span element
-for span in spans:
-    print(span.get_text())
+# Extract and clean the text content
+if content_div:
+    paragraphs = content_div.find_all(["p", "h2", "span"])
+    text_content = []
 
-# Close the WebDrivers
+    for para in paragraphs:
+        text = para.get_text(strip=True)
+        if text:
+            text_content.append(text)
+
+# Close the WebDriver
 driver.quit()
+
+# Save the content to a Word document
+document = Document()
+
+for paragraph in text_content:
+    # Customize styling (e.g., Arabic font and size)
+    p = document.add_paragraph(paragraph)
+    run = p.runs[0]
+    run.font.name = "Simplified Arabic"  # Specify Arabic font
+    run.font.size = Pt(14)  # Font size
+
+# Save the document
+output_path = r"C:\Users\Ahmed-Sharaf\Documents\extracted_content.docx"
+document.save(output_path)
+
+print(f"Content saved to {output_path}")
