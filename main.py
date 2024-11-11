@@ -1,55 +1,43 @@
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-from selenium.webdriver.chrome.service import Service
+import requests
 from docx import Document
-from docx.shared import Pt
-import time
 
-# Path to your ChromeDriver
-service = Service(r"C:\Users\Ahmed-Sharaf\PycharmProjects\pythonProject\chromedriver-win64\chromedriver.exe")
+# Set up the Selenium WebDriver (Ensure the correct path to your chromedriver is provided)
+driver = webdriver.Chrome()
 
-# Initialize the WebDriver
-driver = webdriver.Chrome(service=service)
+# Open the webpage
+driver.get("http://e-books.helwan.edu.eg/storage/29946/index.html#/reader/chapter/8")
 
-# Navigate to the webpage
-url = "http://e-books.helwan.edu.eg/storage/29946/index.html#/reader/chapter/8"
-driver.get(url)
+# Explicit wait: Wait for a specific element (e.g., div with a specific class) to be present
+try:
+    # Wait for the div element to load (replace 'WordSection2' with the actual class you're looking for)
+    specific_div = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CLASS_NAME, "WordSection2"))
+    )
+    # Once the element is loaded, extract the inner HTML
+    html_content = specific_div.get_attribute('innerHTML')
+    # print(html_content)
 
-# Wait for JavaScript-rendered content to load
-time.sleep(10)  # Adjust the time based on your connection speed
+    # Create a new Document
+    doc = Document()
 
-# Get the page source and parse it
-page_source = driver.page_source
-soup = BeautifulSoup(page_source, "html.parser")
+    # If you want to extract just the text content:
+    text_content = specific_div.text
+    #print("Text Content:", text_content)
 
-# Locate the target div
-content_div = soup.find("div", class_="WordSection2")
+    # Add plain text
+    doc.add_paragraph(f"{text_content}")
 
-# Extract and clean the text content
-if content_div:
-    paragraphs = content_div.find_all(["p", "h2", "span"])
-    text_content = []
+    # Save the document to a file
+    doc.save("extracted_content.docx")
 
-    for para in paragraphs:
-        text = para.get_text(strip=True)
-        if text:
-            text_content.append(text)
+except TimeoutException:
+    print("Timed out waiting for page to load or element to be present.")
 
-# Close the WebDriver
-driver.quit()
-
-# Save the content to a Word document
-document = Document()
-
-for paragraph in text_content:
-    # Customize styling (e.g., Arabic font and size)
-    p = document.add_paragraph(paragraph)
-    run = p.runs[0]
-    run.font.name = "Simplified Arabic"  # Specify Arabic font
-    run.font.size = Pt(14)  # Font size
-
-# Save the document
-output_path = r"C:\Users\Ahmed-Sharaf\Documents\extracted_content.docx"
-document.save(output_path)
-
-print(f"Content saved to {output_path}")
+finally:
+    # Close the browser
+    driver.quit()
