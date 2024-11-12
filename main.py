@@ -3,40 +3,71 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-import requests
 from docx import Document
 
-# Set up the Selenium WebDriver (Ensure the correct path to your chromedriver is provided)
+# Set up the Selenium WebDriver
 driver = webdriver.Chrome()
 
 # Open the webpage
 driver.get("http://e-books.helwan.edu.eg/storage/29946/index.html#/reader/chapter/8")
 
-# Explicit wait: Wait for a specific element (e.g., div with a specific class) to be present
 try:
-    # Wait for the div element to load (replace 'WordSection2' with the actual class you're looking for)
+    # Wait for the div element with the class 'WordSection2' to load
     specific_div = WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.CLASS_NAME, "WordSection2"))
     )
-    # Once the element is loaded, extract the inner HTML
+    # Get the HTML content
     html_content = specific_div.get_attribute('innerHTML')
-    # print(html_content)
 
-    # Create a new Document
+    # Parse the HTML with BeautifulSoup
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    # Create a new Word Document
     doc = Document()
 
-    # If you want to extract just the text content:
-    text_content = specific_div.text
-    #print("Text Content:", text_content)
+    # Set to track already processed text
+    processed_text = set()
 
-    # Add plain text
-    doc.add_paragraph(f"{text_content}")
+    # Extract and format content
+    for element in soup.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+        # Initialize the paragraph
+        paragraph = doc.add_paragraph()
 
-    # Save the document to a file
-    doc.save("extracted_content.docx")
+        # Collect bold text separately
+        bold_texts = []
+        for sub_element in element.find_all('b'):
+            bold_text = sub_element.get_text(separator=" ", strip=True)
+            if bold_text and bold_text not in processed_text:
+                bold_texts.append(bold_text)
+                processed_text.add(bold_text)
 
-except TimeoutException:
-    print("Timed out waiting for page to load or element to be present.")
+        # Add bold text to the paragraph
+        for bold_text in bold_texts:
+            run = paragraph.add_run(bold_text + " ")
+            run.bold = True
+
+        # Remove bold texts from the full text to avoid duplication
+        full_text = element.get_text(separator=" ", strip=True)
+        for bold_text in bold_texts:
+            full_text = full_text.replace(bold_text, "").strip()
+
+        # Add the remaining text (non-bold) if it exists and hasn't been processed yet
+        if full_text and full_text not in processed_text:
+            paragraph.add_run(full_text)
+            processed_text.add(full_text)
+
+        # Handle the headings (h1, h2, h3, etc.)
+        if element.name.startswith('h'):
+            heading_text = element.get_text(separator=" ", strip=True)
+            if heading_text not in processed_text:
+                doc.add_paragraph(heading_text, style='Heading ' + element.name[1])
+                processed_text.add(heading_text)
+
+    # Save the Word document
+    doc.save("formatted_extracted_content.docx")
+
+except Exception as e:
+    print(f"An error occurred: {e}")
 
 finally:
     # Close the browser
