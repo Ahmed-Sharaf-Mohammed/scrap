@@ -15,7 +15,7 @@ driver.get("http://e-books.helwan.edu.eg/storage/29946/index.html#/reader/chapte
 
 try:
     # Wait for the div element with the class 'WordSection2' to load
-    specific_div = WebDriverWait(driver, 10).until(
+    specific_div = WebDriverWait(driver, 15).until(
         EC.presence_of_element_located((By.CLASS_NAME, "WordSection2"))
     )
     # Get the HTML content
@@ -47,55 +47,62 @@ try:
         # If it's a paragraph, create a paragraph and add text
         elif element.name == 'p':
             paragraph = doc.add_paragraph()
+            paragraph_text = ""  # To track text in the current paragraph
+
             for child in element.descendants:
-                if child.string and child.string.strip():  # Check if it's a valid text node
-                    text = clean_text(child.string.strip())
-                    if not text:  # Skip if the cleaned text is empty or already processed
-                        continue
+                if "</" not in child:
+                    if child.string and child.string.strip():  # Check if it's a valid text node
+                        text = clean_text(child.string.strip())
+                        if not text or text in processed_texts or text in paragraph_text:  # Skip duplicates
+                            continue
 
-                    # Check if the text has already been processed
-                    if text in processed_texts:
-                        continue
+                        # Prepare styles to apply
+                        styles = {
+                            "bold": False,
+                            "italic": False,
+                            "highlight": False,
+                            "small": False,
+                            "strike": False,
+                            "underline": False,
+                            "superscript": False,
+                        }
 
-                    # Create a new run for the text
-                    run = paragraph.add_run(text + " ")
+                        # Collect styles from parent tags
+                        for parent in child.parents:
+                            if parent.name in ['b', 'strong']:
+                                styles["bold"] = True
+                            if parent.name in ['i', 'em']:
+                                styles["italic"] = True
+                            if parent.name == 'mark':
+                                styles["highlight"] = True
+                            if parent.name == 'small':
+                                styles["small"] = True
+                            if parent.name == 'del':
+                                styles["strike"] = True
+                            if parent.name in ['u', 'ins']:
+                                styles["underline"] = True
+                            if parent.name == 'sup':
+                                styles["superscript"] = True
 
-                    # Set of styles to be applied on the run (prevent applying the same style multiple times)
-                    applied_styles = set()
-
-                    # Apply styles based on parent tags (only once per style)
-                    for parent in child.parents:
-                        if parent.name in ['b', 'strong'] and 'bold' not in applied_styles:
-                            run.bold = True
-                            applied_styles.add('bold')  # Mark 'bold' style as applied
-                        if parent.name in ['i', 'em'] and 'italic' not in applied_styles:
-                            run.italic = True
-                            applied_styles.add('italic')  # Mark 'italic' style as applied
-                        if parent.name == 'mark' and 'highlight' not in applied_styles:
+                        # Create a single run and apply all styles
+                        run = paragraph.add_run(text + " ")
+                        run.bold = styles["bold"]
+                        run.italic = styles["italic"]
+                        if styles["highlight"]:
                             run.font.highlight_color = 7  # Highlight yellow
-                            applied_styles.add('highlight')  # Mark 'highlight' style as applied
-                        if parent.name == 'small' and 'small' not in applied_styles:
+                        if styles["small"]:
                             run.font.size = Pt(8)  # Smaller font
-                            applied_styles.add('small')  # Mark 'small' style as applied
-                        if parent.name == 'del' and 'strike' not in applied_styles:
-                            run.font.strike = True  # Strikethrough
-                            applied_styles.add('strike')  # Mark 'strike' style as applied
-                        if parent.name == 'ins' and 'underline' not in applied_styles:
-                            run.underline = True  # Underline
-                            applied_styles.add('underline')  # Mark 'underline' style as applied
-                        if parent.name == 'u' and 'underline' not in applied_styles:
-                            run.underline = True  # Underline
-                            applied_styles.add('underline')  # Mark 'underline' style as applied
-                        if parent.name == 'sup' and 'superscript' not in applied_styles:
-                            run.font.superscript = True  # Superscript
-                            applied_styles.add('superscript')  # Mark 'superscript' style as applied
+                        run.font.strike = styles["strike"]
+                        run.underline = styles["underline"]
+                        run.font.superscript = styles["superscript"]
 
-                    # Debug: print the text and styles being applied to it
-                    print(f"Text: '{text}'")
-                    print(f"Applied Styles: {applied_styles}")
+                        # Add text to the current paragraph tracker and global tracker
+                        paragraph_text += text
+                        processed_texts.add(text)
 
-                    # Mark this text as processed
-                    processed_texts.add(text)
+                        # Debugging: print the text and applied styles
+                        print(f"Text: {text}")
+                        print(f"Styles Applied: {styles}")
 
     # Save the Word document
     doc.save("cleaned_extracted_content_with_headings.docx")
